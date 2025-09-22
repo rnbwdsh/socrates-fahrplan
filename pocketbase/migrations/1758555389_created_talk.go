@@ -11,7 +11,7 @@ func init() {
 	m.Register(func(app core.App) error {
 		jsonData := `{
 			"createRule": "@request.auth.id != \"\"",
-			"deleteRule": "speaker ?= @request.auth.id || speaker:length = 0",
+			"deleteRule": "speaker ?~ @request.auth.id || speaker:length = 0",
 			"fields": [
 				{
 					"autogeneratePattern": "[a-z0-9]{15}",
@@ -172,7 +172,7 @@ func init() {
 			"name": "talk",
 			"system": false,
 			"type": "base",
-			"updateRule": "speaker ?= @request.auth.id || speaker:length = 0",
+			"updateRule": "speaker ?~ @request.auth.id || speaker:length = 0",
 			"viewRule": ""
 		}`
 

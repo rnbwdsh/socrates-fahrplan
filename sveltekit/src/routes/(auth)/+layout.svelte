@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { Logout, user } from '$lib/auth';
+	import { Logout } from '$lib/auth';
+	import { user } from '$lib/stores';
 
-	let { children } = $props();
+	const { children } = $props();
 </script>
 
 <nav class="flex justify-end items-center py-2 px-4 bg-white shadow">

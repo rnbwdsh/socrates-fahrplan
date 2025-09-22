@@ -16,6 +16,8 @@ func init() {
 
 		// update collection data
 		if err := json.Unmarshal([]byte(`{
+			"listRule": "",
+			"viewRule": "",
 			"createRule": "@request.body.secret = 'socrates2025'",
 			"indexes": [
 				"CREATE UNIQUE INDEX `+"`"+`idx_tokenKey__pb_users_auth_`+"`"+` ON `+"`"+`users`+"`"+` (`+"`"+`tokenKey`+"`"+`)",

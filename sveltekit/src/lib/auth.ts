@@ -1,12 +1,10 @@
 import { applyAction } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { type SubmitFunction } from '@sveltejs/kit';
-import { type AuthRecord, ClientResponseError } from 'pocketbase';
-import { writable } from 'svelte/store';
+import { ClientResponseError } from 'pocketbase';
 
 import { pb } from '$lib/pocketbase';
-
-export const user = writable<AuthRecord>(null);
+import { user } from '$lib/stores';
 
 pb.authStore.onChange((_, authRecord) => {
 	user.set(authRecord);
@@ -32,7 +30,7 @@ export const LoginAction: SubmitFunction = async ({ formData, cancel }) => {
 };
 
 export const Logout = async () => {
-	await pb.authStore.clear();
+	pb.authStore.clear();
 	await invalidateAll();
 };
 
@@ -42,9 +40,10 @@ export const RegisterAction: SubmitFunction = async ({ formData, cancel }) => {
 		const email = value(formData, 'email');
 		const password = value(formData, 'password');
 		const passwordConfirm = value(formData, 'passwordConfirm');
+		const secret = value(formData, 'secret');
 		const next = value(formData, 'next', false);
 
-		await pb.collection('users').create({ email, password, passwordConfirm });
+		await pb.collection('users').create({ email, password, passwordConfirm, secret });
 		await pb.collection('users').authWithPassword(email, password);
 		await applyAction({ type: 'redirect', status: 303, location: next || '/' });
 	} catch (e) {
@@ -58,7 +57,6 @@ export const RegisterAction: SubmitFunction = async ({ formData, cancel }) => {
 };
 
 function value(formData: FormData, key: string): string;
-function value(formData: FormData, key: string, required: true): string;
 function value(formData: FormData, key: string, required: false): string | null;
 function value(formData: FormData, key: string, required: boolean = true): string | null {
 	const v = formData.get(key);
