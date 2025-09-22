@@ -5,3 +5,5 @@
 
 .env
 pb_data/
+/node_modules/*
+bun.lock
