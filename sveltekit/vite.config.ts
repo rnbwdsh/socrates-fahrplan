@@ -6,7 +6,7 @@ export default defineConfig({
 	plugins: [sveltekit(), tailwindcss()],
 	server: {
 		proxy: {
-			'^/(api|_)/': {
+			'^/(api/|_)': {
 				target: 'http://localhost:8090',
 				changeOrigin: true,
 			},
