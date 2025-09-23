@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Logout } from '$lib/auth';
 	import { pb } from '$lib/pocketbase';
-	import { availableDays, selectedDay, user } from '$lib/stores';
+	import { availableDays, selectedDay, theme, user } from '$lib/stores';
 
 	import '../app.css';
 
@@ -13,23 +13,54 @@
 		}
 	});
 
+	const isDark = $derived(
+		() =>
+			$theme === 'dark' ||
+			($theme === 'system' &&
+				typeof window !== 'undefined' &&
+				window.matchMedia('(prefers-color-scheme: dark)').matches),
+	);
+
+	$effect(() => {
+		if (isDark()) {
+			document.documentElement.classList.add('dark');
+		} else {
+			document.documentElement.classList.remove('dark');
+		}
+	});
+
 	const handleLogout = () => Logout();
+
+	const themeEmojis = {
+		system: '🌓',
+		light: '☀️',
+		dark: '🌙',
+	} as const;
+
+	const themes = Object.keys(themeEmojis) as (keyof typeof themeEmojis)[];
+	const toggleTheme = () => {
+		const currentIndex = themes.indexOf($theme);
+		const nextIndex = (currentIndex + 1) % themes.length;
+		theme.set(themes[nextIndex]);
+	};
 </script>
 
-<div class="min-h-screen bg-gray-50">
-	<nav class="bg-white shadow-sm border-b">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+	<nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between h-16">
 				<div class="flex items-center space-x-6">
-					<a href="/" class="text-xl font-bold text-gray-900"> Socrates Fahrplan </a>
+					<a href="/" class="text-xl font-bold text-gray-900 dark:text-white">
+						Socrates Fahrplan
+					</a>
 
 					{#if $availableDays.length > 0}
 						<div class="flex space-x-2">
-							{#each $availableDays as day}
+							{#each $availableDays as day (day)}
 								<button
 									class="px-3 py-1 rounded-md text-sm whitespace-nowrap {$selectedDay === day
 										? 'bg-blue-600 text-white'
-										: 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+										: 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500'}"
 									onclick={() => selectedDay.set(day)}
 								>
 									{new Date(day).toLocaleDateString('en-US', {
@@ -44,6 +75,13 @@
 				</div>
 
 				<div class="flex items-center space-x-4">
+					<button
+						onclick={toggleTheme}
+						class="px-3 py-2 rounded-md text-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+						title="Toggle theme: {$theme}"
+					>
+						{themeEmojis[$theme]}
+					</button>
 					{#if $user}
 						<a
 							href="/user/edit"
@@ -60,7 +98,7 @@
 					{:else}
 						<a
 							href="/login"
-							class="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded-md text-sm font-medium border border-gray-300"
+							class="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 dark:hover:bg-gray-500"
 						>
 							Login
 						</a>
@@ -76,7 +114,7 @@
 		</div>
 	</nav>
 
-	<main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+	<main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 text-gray-900 dark:text-gray-100">
 		{@render children()}
 	</main>
 </div>

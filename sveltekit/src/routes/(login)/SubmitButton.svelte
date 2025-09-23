@@ -1,9 +1,5 @@
 <script lang="ts">
-	interface Props {
-		text: string;
-	}
-
-	const { text }: Props = $props();
+	const { text }: { text: string } = $props();
 </script>
 
 <button

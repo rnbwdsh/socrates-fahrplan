@@ -119,16 +119,18 @@
 
 <div class="max-w-4xl mx-auto p-6">
 	{#if error}
-		<div class="text-red-600 text-center py-8">{error}</div>
+		<div class="text-red-600 dark:text-red-400 text-center py-8">{error}</div>
 	{:else if talk && !canEditTalk(talk, $user)}
-		<div class="text-red-600 text-center py-8">You do not have permission to edit this talk.</div>
+		<div class="text-red-600 dark:text-red-400 text-center py-8">
+			You do not have permission to edit this talk.
+		</div>
 	{:else if talk}
-		<div class="bg-white rounded-lg shadow-lg p-8">
-			<h1 class="text-xl font-bold text-gray-900 mb-6">Edit Talk</h1>
+		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+			<h1 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Edit Talk</h1>
 
 			<form onsubmit={handleSubmit} class="space-y-6">
 				<div>
-					<label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+					<label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 						Talk Name *
 					</label>
 					<input
@@ -136,12 +138,15 @@
 						type="text"
 						bind:value={formData.name}
 						required
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					/>
 				</div>
 
 				<div>
-					<label for="start" class="block text-sm font-medium text-gray-700 mb-2">
+					<label
+						for="start"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+					>
 						Start Time *
 					</label>
 					<input
@@ -149,12 +154,15 @@
 						type="datetime-local"
 						bind:value={formData.start}
 						required
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					/>
 				</div>
 
 				<div>
-					<label for="duration" class="block text-sm font-medium text-gray-700 mb-2">
+					<label
+						for="duration"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+					>
 						Duration (minutes) *
 					</label>
 					<input
@@ -163,17 +171,19 @@
 						bind:value={formData.durationMinutes}
 						min="1"
 						required
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					/>
 				</div>
 
 				<div>
-					<label for="room" class="block text-sm font-medium text-gray-700 mb-2"> Room * </label>
+					<label for="room" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Room *
+					</label>
 					<select
 						id="room"
 						bind:value={formData.room}
 						required
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					>
 						<option value="">Select a room...</option>
 						{#each rooms as room (room.id)}
@@ -185,34 +195,44 @@
 				</div>
 
 				<div>
-					<label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+					<label
+						for="description"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+					>
 						Description
 					</label>
 					<textarea
 						id="description"
 						bind:value={formData.description}
 						rows="4"
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					></textarea>
 				</div>
 
 				<div>
-					<label for="language" class="block text-sm font-medium text-gray-700 mb-2">
+					<label
+						for="language"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+					>
 						Language
 					</label>
 					<select
 						id="language"
 						bind:value={formData.language}
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					>
 						<option value="english">English</option>
 						<option value="german">German</option>
 					</select>
 				</div>
 
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Speakers</label>
-					<div class="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
+				<fieldset>
+					<legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+						>Speakers</legend
+					>
+					<div
+						class="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 p-3"
+					>
 						{#each users as userItem (userItem.id)}
 							<label class="flex items-center space-x-2 py-1">
 								<input
@@ -221,15 +241,21 @@
 									onchange={() => toggleSpeaker(userItem.id)}
 									class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
 								/>
-								<span class="text-sm">{getUserDisplayName(userItem)}</span>
+								<span class="text-sm text-gray-900 dark:text-gray-100"
+									>{getUserDisplayName(userItem)}</span
+								>
 							</label>
 						{/each}
 					</div>
-				</div>
+				</fieldset>
 
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-					<div class="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
+				<fieldset>
+					<legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+						>Tags</legend
+					>
+					<div
+						class="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 p-3"
+					>
 						{#each tags as tag (tag.id)}
 							<label class="flex items-center space-x-2 py-1">
 								<input
@@ -238,24 +264,29 @@
 									onchange={() => toggleTag(tag.id)}
 									class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
 								/>
-								<span class="text-sm">{tag.name}</span>
+								<span class="text-sm text-gray-900 dark:text-gray-100">{tag.name}</span>
 							</label>
 						{/each}
 					</div>
-				</div>
+				</fieldset>
 
 				<div>
-					<label for="files" class="block text-sm font-medium text-gray-700 mb-2"> Files </label>
+					<label
+						for="files"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+					>
+						Files
+					</label>
 					<input
 						id="files"
 						type="file"
 						multiple
 						bind:files={selectedFiles}
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					/>
 				</div>
 				{#if talk?.files && talk.files.length > 0}
-					<div class="mt-2 text-sm text-gray-600">
+					<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
 						<p>Current files:</p>
 						<ul class="list-disc list-inside">
 							{#each talk.files as file (file)}
@@ -268,7 +299,7 @@
 				<div class="flex justify-end space-x-4">
 					<a
 						href="/talk/{talk?.id || ''}"
-						class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+						class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
 					>
 						Cancel
 					</a>

@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 
 	import { pb } from '$lib/pocketbase';
-    import { user } from '$lib/stores';
+	import { user } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 
 	let error = $state('Loading...');
@@ -71,18 +71,25 @@
 
 <div class="max-w-4xl mx-auto p-6">
 	{#if error}
-		<div class="text-red-600 text-center py-8">{error}</div>
+		<div class="text-red-600 dark:text-red-400 text-center py-8">{error}</div>
 		<div class="text-center">
-			<a href="/" class="text-blue-600 hover:text-blue-800">← Back to schedule</a>
+			<a
+				href="/"
+				class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+				>← Back to schedule</a
+			>
 		</div>
 	{:else if profileUser}
 		<div class="mb-6">
-			<a href="/" class="text-blue-600 hover:text-blue-800 flex items-center">
+			<a
+				href="/"
+				class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center"
+			>
 				← Back to schedule
 			</a>
 		</div>
 
-		<div class="bg-white rounded-lg shadow-lg p-8">
+		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
 			<div class="flex items-start space-x-6 mb-8">
 				{#if profileUser.avatar}
 					<img
@@ -97,12 +104,12 @@
 				{/if}
 
 				<div class="flex-1">
-					<h1 class="text-3xl font-bold text-gray-900 mb-2">
+					<h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
 						{getUserDisplayName(profileUser)}
 					</h1>
 
 					{#if profileUser.emailVisibility && profileUser.email}
-						<p class="text-gray-600 mb-2">📧 {profileUser.email}</p>
+						<p class="text-gray-600 dark:text-gray-300 mb-2">📧 {profileUser.email}</p>
 					{/if}
 
 					{#if profileUser.website}
@@ -111,7 +118,7 @@
 								href={profileUser.website}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+								class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center space-x-1"
 							>
 								<span>🌐</span>
 								<span>{profileUser.website}</span>
@@ -120,7 +127,7 @@
 					{/if}
 
 					{#if profileUser.bio}
-						<div class="text-gray-700 mt-4 whitespace-pre-wrap">
+						<div class="text-gray-700 dark:text-gray-300 mt-4 whitespace-pre-wrap">
 							{profileUser.bio}
 						</div>
 					{/if}
@@ -140,17 +147,20 @@
 
 			{#if speakerTalks.length > 0}
 				<div class="mb-8">
-					<h2 class="text-2xl font-semibold mb-4">Speaking at</h2>
+					<h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Speaking at</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{#each speakerTalks as talk (talk.id)}
-							<div class="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500">
+							<div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-l-4 border-green-500">
 								<h3 class="font-bold text-lg mb-2">
-									<a href="/talk/{talk.id}" class="text-blue-600 hover:text-blue-800">
+									<a
+										href="/talk/{talk.id}"
+										class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+									>
 										{talk.name}
 									</a>
 								</h3>
 								{#if talk.description}
-									<p class="text-gray-700 text-sm mb-3">
+									<p class="text-gray-700 dark:text-gray-300 text-sm mb-3">
 										{talk.description}
 									</p>
 								{/if}
@@ -162,17 +172,22 @@
 
 			{#if talksToVisit.length > 0}
 				<div class="mb-8">
-					<h2 class="text-2xl font-semibold mb-4">Planning to attend</h2>
+					<h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+						Planning to attend
+					</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{#each talksToVisit as talk (talk.id)}
-							<div class="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+							<div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-l-4 border-blue-500">
 								<h3 class="font-bold text-lg mb-2">
-									<a href="/talk/{talk.id}" class="text-blue-600 hover:text-blue-800">
+									<a
+										href="/talk/{talk.id}"
+										class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+									>
 										{talk.name}
 									</a>
 								</h3>
 								{#if talk.description}
-									<p class="text-gray-700 text-sm mb-3">
+									<p class="text-gray-700 dark:text-gray-300 text-sm mb-3">
 										{talk.description}
 									</p>
 								{/if}
@@ -183,11 +198,13 @@
 			{/if}
 
 			{#if speakerTalks.length === 0 && talksToVisit.length === 0}
-				<div class="text-center py-12 text-gray-500">
+				<div class="text-center py-12 text-gray-500 dark:text-gray-400">
 					<p class="text-lg mb-2">No talks found for this user.</p>
 					<p class="text-sm">
 						{#if $user?.id === profileUser?.id}
-							Start by <a href="/" class="text-blue-600 hover:text-blue-800"
+							Start by <a
+								href="/"
+								class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
 								>browsing the schedule</a
 							> and adding talks to your favorites!
 						{:else}

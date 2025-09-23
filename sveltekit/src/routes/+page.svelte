@@ -1,20 +1,22 @@
 <script lang="ts">
+	import { SvelteDate, SvelteSet } from 'svelte/reactivity';
+
 	import { pb } from '$lib/pocketbase';
-    import { availableDays, selectedDay, talks } from '$lib/stores';
+	import { availableDays, selectedDay, talks } from '$lib/stores';
 	import { formatTime, getExpandedRoom } from '$lib/utils';
 
 	let error = $state('Loading...');
 
 	const dayTalks = $derived(() => {
 		if (!$selectedDay) return [];
-		return $talks.filter((talk) => {
-			const talkDate = new Date(talk.start).toDateString();
-			return talkDate === new Date($selectedDay).toDateString();
-		});
+		return $talks.filter(
+			(talk) =>
+				new SvelteDate(talk.start).toDateString() === new SvelteDate($selectedDay).toDateString(),
+		);
 	});
 
 	const rooms = $derived(() => {
-		const roomSet = new Set();
+		const roomSet = new SvelteSet();
 		dayTalks().forEach((talk) => {
 			const room = getExpandedRoom(talk);
 			if (room) {
@@ -27,12 +29,11 @@
 	const timeSlots = $derived(() => {
 		if (dayTalks().length === 0) return [];
 
-		const times = dayTalks().map((talk) => new Date(talk.start).getHours());
+		const times = dayTalks().map((talk) => new SvelteDate(talk.start).getHours());
 		const minHour = Math.min(...times);
 		const maxHour = Math.max(
-			...times.map((_, i) => {
-				const talk = dayTalks()[i];
-				const endTime = new Date(talk.start);
+			...dayTalks().map((talk) => {
+				const endTime = new SvelteDate(talk.start);
 				endTime.setMinutes(endTime.getMinutes() + talk.durationMinutes);
 				return endTime.getHours();
 			}),
@@ -40,7 +41,7 @@
 
 		const slots = [];
 		for (let hour = minHour; hour <= maxHour; hour++) {
-			const date = new Date(dayTalks()[0].start);
+			const date = new SvelteDate(dayTalks()[0].start);
 			date.setHours(hour, 0, 0, 0);
 			slots.push(date.toISOString());
 		}
@@ -54,37 +55,32 @@
 		const roomIndex = rooms().findIndex((r) => r.id === room.id);
 		if (roomIndex === -1) return null;
 
-		const talkStart = new Date(talk.start);
-		const talkEnd = new Date(talk.start);
+		const talkStart = new SvelteDate(talk.start);
+		const talkEnd = new SvelteDate(talk.start);
 		talkEnd.setMinutes(talkEnd.getMinutes() + talk.durationMinutes);
 
-		const firstSlot = new Date(timeSlots()[0]);
-		const startRow = Math.floor((talkStart.getTime() - firstSlot.getTime()) / (1000 * 60 * 60)) + 1;
-		const endRow = Math.ceil((talkEnd.getTime() - firstSlot.getTime()) / (1000 * 60 * 60)) + 1;
-
+		const firstSlot = new SvelteDate(timeSlots()[0]);
 		return {
 			roomIndex,
-			startRow,
-			endRow,
+			startRow: Math.floor((talkStart.getTime() - firstSlot.getTime()) / (1000 * 60 * 60)) + 1,
+			endRow: Math.ceil((talkEnd.getTime() - firstSlot.getTime()) / (1000 * 60 * 60)) + 1,
 		};
 	};
 
-	const days = $derived(() => {
-		const uniqueDays = [...new Set($talks.map((talk) => new Date(talk.start).toDateString()))];
-		return uniqueDays.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-	});
+	const days = $derived(() =>
+		[...new Set($talks.map((talk) => new Date(talk.start).toDateString()))].sort(
+			(a, b) => new Date(a).getTime() - new Date(b).getTime(),
+		),
+	);
 
 	$effect(() => {
-		const currentDays = days();
-		if (currentDays.length > 0 && !$selectedDay) {
+		if (days().length > 0 && !$selectedDay) {
 			const today = new Date().toDateString();
-			selectedDay.set(currentDays.includes(today) ? today : currentDays[0]);
+			selectedDay.set(days().includes(today) ? today : days()[0]);
 		}
 	});
 
-	$effect(() => {
-		availableDays.set(days());
-	});
+	$effect(() => availableDays.set(days()));
 
 	$effect(() => {
 		async function loadTalks() {
@@ -121,71 +117,75 @@
 
 <div class="p-4">
 	{#if error}
-		<div class="text-red-600 text-center py-8">{error}</div>
+		<div class="text-red-600 dark:text-red-400 text-center py-8">{error}</div>
 	{:else if dayTalks().length === 0}
-		<div class="text-gray-600 text-center py-8">No talks scheduled for this day</div>
+		<div class="text-gray-600 dark:text-gray-400 text-center py-8">
+			No talks scheduled for this day
+		</div>
 	{:else}
 		<div class="overflow-x-auto">
 			<div class="min-w-fit">
-				<!-- Header row with room names -->
 				<div
-					class="grid gap-1 mb-2 sticky top-0 bg-white z-10 border-b"
+					class="grid gap-1 mb-2 sticky top-0 bg-white dark:bg-gray-900 z-10 border-b border-gray-200 dark:border-gray-700"
 					style="grid-template-columns: 100px repeat({rooms().length}, 300px);"
 				>
-					<div class="font-bold text-sm text-gray-600 p-2">Time</div>
-					{#each rooms() as room}
-						<div class="font-bold text-sm text-gray-800 p-2 text-center border-b-2 border-gray-300">
+					<div class="font-bold text-sm text-gray-600 dark:text-gray-400 p-2">Time</div>
+					{#each rooms() as room (room.id)}
+						<div
+							class="font-bold text-sm text-gray-800 dark:text-gray-200 p-2 text-center border-b-2 border-gray-300 dark:border-gray-600"
+						>
 							{room.name}
 						</div>
 					{/each}
 				</div>
 
-				<!-- Schedule grid container -->
 				<div
 					class="grid gap-1"
 					style="grid-template-columns: 100px repeat({rooms()
 						.length}, 300px); grid-template-rows: repeat({timeSlots().length}, 80px);"
 				>
-					<!-- Time labels -->
-					{#each timeSlots() as timeSlot, index}
+					{#each timeSlots() as timeSlot, index (timeSlot)}
 						<div
-							class="text-sm font-medium text-gray-600 p-2 border-r border-gray-200 flex items-center"
+							class="text-sm font-medium text-gray-600 dark:text-gray-400 p-2 border-r border-gray-200 dark:border-gray-700 flex items-center"
 							style="grid-column: 1; grid-row: {index + 1};"
 						>
 							{formatTime(timeSlot)}
 						</div>
 					{/each}
 
-					<!-- Empty cells for grid structure -->
-					{#each timeSlots() as _, timeIndex}
-						{#each rooms() as _, roomIndex}
+					{#each timeSlots() as timeSlot, timeIndex (timeSlot)}
+						{#each rooms() as room, roomIndex (room.id)}
 							<div
-								class="border border-gray-200"
+								class="border border-gray-200 dark:border-gray-700"
 								style="grid-column: {roomIndex + 2}; grid-row: {timeIndex + 1};"
 							></div>
 						{/each}
 					{/each}
 
-					<!-- Talks positioned in grid -->
-					{#each dayTalks() as talk}
+					{#each dayTalks() as talk (talk.id)}
 						{@const position = getGridPosition(talk)}
 						{#if position}
 							<div
-								class="bg-white rounded-lg shadow-md p-3 border-l-4 border-blue-500 hover:shadow-lg transition-shadow overflow-hidden m-1"
+								class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 border-l-4 border-blue-500 hover:shadow-lg transition-shadow overflow-hidden m-1"
 								style="grid-column: {position.roomIndex +
 									2}; grid-row: {position.startRow} / {position.endRow};"
 							>
 								<div class="flex justify-between items-start mb-2">
 									<div class="flex-1">
-										<h3 class="font-bold text-sm text-gray-900 mb-1 leading-tight">
-											<a href="/talk/{talk.id}" class="hover:text-blue-600">
+										<h3
+											class="font-bold text-sm text-gray-900 dark:text-gray-100 mb-1 leading-tight"
+										>
+											<a
+												href="/talk/{talk.id}"
+												class="hover:text-blue-600 dark:hover:text-blue-400"
+											>
 												{talk.name}
 											</a>
 										</h3>
 									</div>
 								</div>
 								{#if talk.description}
-									<p class="text-gray-700 text-xs leading-tight">
+									<p class="text-gray-700 dark:text-gray-300 text-xs leading-tight">
 										{talk.description.length > 100
 											? talk.description.slice(0, 100) + '...'
 											: talk.description}

@@ -13,12 +13,14 @@ pb.authStore.onChange((_, authRecord) => {
 export const LoginAction: SubmitFunction = async ({ formData, cancel }) => {
 	cancel();
 	try {
-		const email = value(formData, 'email');
-		const password = value(formData, 'password');
-		const next = value(formData, 'next', false);
-
-		await pb.collection('users').authWithPassword(email, password);
-		await applyAction({ type: 'redirect', status: 303, location: next || '/' });
+		await pb
+			.collection('users')
+			.authWithPassword(formData.get('email') as string, formData.get('password') as string);
+		await applyAction({
+			type: 'redirect',
+			status: 303,
+			location: (formData.get('next') as string) || '/',
+		});
 	} catch (e) {
 		console.log(e);
 		if (e instanceof ClientResponseError) {
@@ -37,15 +39,21 @@ export const Logout = async () => {
 export const RegisterAction: SubmitFunction = async ({ formData, cancel }) => {
 	cancel();
 	try {
-		const email = value(formData, 'email');
-		const password = value(formData, 'password');
-		const passwordConfirm = value(formData, 'passwordConfirm');
-		const secret = value(formData, 'secret');
-		const next = value(formData, 'next', false);
+		const email = formData.get('email') as string;
+		const password = formData.get('password') as string;
 
-		await pb.collection('users').create({ email, password, passwordConfirm, secret });
+		await pb.collection('users').create({
+			email,
+			password,
+			passwordConfirm: formData.get('passwordConfirm') as string,
+			secret: formData.get('secret') as string,
+		});
 		await pb.collection('users').authWithPassword(email, password);
-		await applyAction({ type: 'redirect', status: 303, location: next || '/' });
+		await applyAction({
+			type: 'redirect',
+			status: 303,
+			location: (formData.get('next') as string) || '/',
+		});
 	} catch (e) {
 		console.log(e);
 		if (e instanceof ClientResponseError) {
@@ -55,16 +63,3 @@ export const RegisterAction: SubmitFunction = async ({ formData, cancel }) => {
 		}
 	}
 };
-
-function value(formData: FormData, key: string): string;
-function value(formData: FormData, key: string, required: false): string | null;
-function value(formData: FormData, key: string, required: boolean = true): string | null {
-	const v = formData.get(key);
-	if (v instanceof File) {
-		throw new Error(`${key} must be a string`);
-	}
-	if (required && !v) {
-		throw new Error(`${key} is required`);
-	}
-	return v;
-}

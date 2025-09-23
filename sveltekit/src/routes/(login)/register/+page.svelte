@@ -9,46 +9,52 @@
 	<input type="hidden" name="next" value={$page.url?.searchParams?.get('next') || ''} />
 
 	<div>
-		<label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+		<label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+			>Email</label
+		>
 		<input
 			name="email"
 			type="text"
 			required
-			class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+			class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500"
 		/>
 	</div>
 	<div>
-		<label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+		<label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+			>Password</label
+		>
 		<input
 			name="password"
 			type="password"
 			required
-			class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+			class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500"
 		/>
 	</div>
 	<div>
-		<label for="passwordConfirm" class="block text-sm font-medium text-gray-700"
+		<label for="passwordConfirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
 			>Confirm password</label
 		>
 		<input
 			name="passwordConfirm"
 			type="password"
 			required
-			class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+			class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500"
 		/>
 	</div>
 	<div>
-		<label for="secret" class="block text-sm font-medium text-gray-700">Secret Code</label>
+		<label for="secret" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+			>Secret Code</label
+		>
 		<input
 			name="secret"
 			type="text"
 			required
-			class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+			class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500"
 		/>
 	</div>
 
 	{#if $page.form?.response?.message}
-		<p class="text-red-500">{$page.form.response.message}</p>
+		<p class="text-red-500 dark:text-red-400">{$page.form.response.message}</p>
 	{/if}
 
 	<button
@@ -58,7 +64,10 @@
 		Register
 	</button>
 
-	<a href="/login" class="block text-sm text-center text-blue-600 hover:text-blue-800">
+	<a
+		href="/login"
+		class="block text-sm text-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+	>
 		Already have an account
 	</a>
 </form>

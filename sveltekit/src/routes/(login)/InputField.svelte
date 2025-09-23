@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 
-	interface Props {
-		title: string;
-		name: string;
-		type: 'email' | 'password' | 'text';
-	}
-
-	const { title, name, type }: Props = $props();
+	const {
+		title,
+		name,
+		type,
+	}: { title: string; name: string; type: 'email' | 'password' | 'text' } = $props();
 </script>
 
 <div>
