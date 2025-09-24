@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+
 	import { Logout } from '$lib/auth';
 	import { pb } from '$lib/pocketbase';
 	import { availableDays, selectedDay, theme, user } from '$lib/stores';
@@ -7,11 +9,8 @@
 
 	const { children } = $props();
 
-	$effect(() => {
-		if (pb.authStore.isValid) {
-			user.set(pb.authStore.record);
-		}
-	});
+	// Use user store for proper reactivity
+	const isAuthenticated = $derived($user !== null);
 
 	const isDark = $derived(
 		() =>
@@ -31,6 +30,11 @@
 
 	const handleLogout = () => Logout();
 
+	onMount(() => {
+		// Initialize user store with current auth state
+		user.set(pb.authStore.record);
+	});
+
 	const themeEmojis = {
 		system: '🌓',
 		light: '☀️',
@@ -47,7 +51,7 @@
 
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
 	<nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div class="px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between h-16">
 				<div class="flex items-center space-x-6">
 					<a href="/" class="text-xl font-bold text-gray-900 dark:text-white">
@@ -82,7 +86,13 @@
 					>
 						{themeEmojis[$theme]}
 					</button>
-					{#if $user}
+					{#if isAuthenticated}
+						<a
+							href="/talk/new/edit"
+							class="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700"
+						>
+							Add Talk
+						</a>
 						<a
 							href="/user/edit"
 							class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
@@ -114,7 +124,7 @@
 		</div>
 	</nav>
 
-	<main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 text-gray-900 dark:text-gray-100">
+	<main class="py-6 text-gray-900 dark:text-gray-100">
 		{@render children()}
 	</main>
 </div>

@@ -2,12 +2,14 @@
 	import { page } from '$app/stores';
 
 	import { pb } from '$lib/pocketbase';
-	import { favoriteTalks, user } from '$lib/stores';
+	import { favoriteTalks } from '$lib/stores';
 	import {
 		canEditTalk,
+		deleteTalk,
 		formatFullDate,
 		formatTime,
 		getEndTime,
+		getExpandedArray,
 		getExpandedRoom,
 		getExpandedSpeakers,
 		getExpandedTags,
@@ -18,6 +20,12 @@
 	let error = $state('Loading...');
 	let talk = $state(null);
 
+	async function handleDelete() {
+		if (!talk || !confirm(`Are you sure you want to delete "${talk.name}"?`)) return;
+		await deleteTalk(talk.id);
+		window.location.href = '/';
+	}
+
 	$effect(() => {
 		if (!$page.params.id) {
 			error = 'No talk ID provided';
@@ -27,7 +35,7 @@
 		async function loadTalk() {
 			try {
 				talk = await pb.collection('talk').getOne($page.params.id!, {
-					expand: 'room,speaker,tags',
+					expand: 'room,speaker,tags,users_via_talksToVisit',
 				});
 				error = '';
 			} catch (e) {
@@ -38,14 +46,86 @@
 		loadTalk();
 	});
 
-	const isFavorited = $derived(() =>
-		talk
-			? $user
-				? ($user.talksToVisit || []).includes(talk.id)
-				: $favoriteTalks.includes(talk.id)
-			: false,
-	);
+	let isFavorited = $state(false);
+
+	$effect(() => {
+		if (!talk) return;
+
+		isFavorited = pb.authStore.isValid && pb.authStore.record
+		  ? (pb.authStore.record.talksToVisit || []).includes(talk.id)
+		  : $favoriteTalks.includes(talk.id);
+	});
+
+	async function handleToggleFavorite() {
+		if (!talk) return;
+		isFavorited = !isFavorited;
+		await toggleFavorite(talk.id);
+		talk = await pb.collection('talk').getOne(talk.id, {
+			expand: 'room,speaker,tags,users_via_talksToVisit',
+		});
+	}
 </script>
+
+{#snippet userList(users, title)}
+	{#if users.length > 0}
+		<div class="mb-8">
+			<h2 class="text-base font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				{#each users as user (user.id)}
+					<div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+						<div class="flex items-start space-x-4">
+							{#if user.avatar}
+								<img
+									src={pb.files.getURL(user, user.avatar, { thumb: '80x80' })}
+									alt={user.name || user.username}
+									class="w-16 h-16 rounded-full object-cover"
+								/>
+							{:else}
+								<div class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
+									<span class="text-gray-600 text-lg">👤</span>
+								</div>
+							{/if}
+
+							<div class="flex-1">
+								<h3 class="font-semibold text-lg">
+									<a
+										href="/user/{user.id}"
+										class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+									>
+										{getUserDisplayName(user)}
+									</a>
+								</h3>
+
+								{#if user.bio}
+									<p class="text-gray-600 dark:text-gray-300 text-sm mt-1 line-clamp-3">
+										{user.bio}
+									</p>
+								{/if}
+
+								{#if user.website}
+									<a
+										href={user.website}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm mt-2 inline-block"
+									>
+										🌐 Website
+									</a>
+								{/if}
+
+								{#if user.emailVisibility && user.email}
+									<div class="text-gray-500 dark:text-gray-400 text-sm mt-1">
+										📧 {user.email}
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+{/snippet}
 
 <svelte:head>
 	{#if talk}
@@ -104,16 +184,16 @@
 
 				<div class="flex space-x-3 ml-6">
 					<button
-						onclick={() => talk && toggleFavorite(talk.id)}
-						class="flex items-center space-x-2 px-4 py-2 rounded-md border {isFavorited()
+						onclick={handleToggleFavorite}
+						class="flex items-center space-x-2 px-4 py-2 rounded-md border {isFavorited
 							? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
 							: 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 					>
-						<span class="text-lg">{isFavorited() ? '❤️' : '🤍'}</span>
-						<span>{isFavorited() ? 'Remove from favorites' : 'Add to favorites'}</span>
+						<span class="text-lg">{isFavorited ? '❤️' : '🤍'}</span>
+						<span>{isFavorited ? 'Remove from favorites' : 'Add to favorites'}</span>
 					</button>
 
-					{#if canEditTalk(talk, $user)}
+					{#if canEditTalk(talk, pb.authStore.record)}
 						<a
 							href="/talk/{talk.id}/edit"
 							class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -121,6 +201,13 @@
 							<span>✏️</span>
 							<span>Edit Talk</span>
 						</a>
+						<button
+							onclick={handleDelete}
+							class="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+						>
+							<span>🗑️</span>
+							<span>Delete Talk</span>
+						</button>
 					{/if}
 				</div>
 			</div>
@@ -134,68 +221,9 @@
 				</div>
 			{/if}
 
-			{#if getExpandedSpeakers(talk).length > 0}
-				<div class="mb-8">
-					<h2 class="text-base font-semibold text-gray-900 dark:text-white mb-4">
-						Speaker{getExpandedSpeakers(talk).length > 1 ? 's' : ''}
-					</h2>
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-						{#each getExpandedSpeakers(talk) as speaker (speaker.id)}
-							<div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-								<div class="flex items-start space-x-4">
-									{#if speaker.avatar}
-										<img
-											src={pb.files.getURL(speaker, speaker.avatar, { thumb: '80x80' })}
-											alt={speaker.name || speaker.username}
-											class="w-16 h-16 rounded-full object-cover"
-										/>
-									{:else}
-										<div
-											class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center"
-										>
-											<span class="text-gray-600 text-lg">👤</span>
-										</div>
-									{/if}
+			{@render userList(getExpandedSpeakers(talk), 'Speakers')}
 
-									<div class="flex-1">
-										<h3 class="font-semibold text-lg">
-											<a
-												href="/user/{speaker.id}"
-												class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-											>
-												{getUserDisplayName(speaker)}
-											</a>
-										</h3>
-
-										{#if speaker.bio}
-											<p class="text-gray-600 dark:text-gray-300 text-sm mt-1 line-clamp-3">
-												{speaker.bio}
-											</p>
-										{/if}
-
-										{#if speaker.website}
-											<a
-												href={speaker.website}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm mt-2 inline-block"
-											>
-												🌐 Website
-											</a>
-										{/if}
-
-										{#if speaker.emailVisibility && speaker.email}
-											<div class="text-gray-500 dark:text-gray-400 text-sm mt-1">
-												📧 {speaker.email}
-											</div>
-										{/if}
-									</div>
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
+			{@render userList(getExpandedArray(talk.expand, 'users_via_talksToVisit'), 'Guests')}
 
 			{#if talk.files && talk.files.length > 0}
 				<div class="mb-8">

@@ -377,6 +377,21 @@ func hasTimeOverlap(newStart time.Time, newDuration int, existing *models.Record
 
 ---
 
+# Step 6: Deployment - Docker or deploy_yolo.sh
+
+```bash
+#!/bin/bash
+TARGET=${TARGET:-markus@voidman.at}
+set -ex
+cd sveltekit && bun run build
+mv -f build/* ../pocketbase/pb_public/
+cd ../pocketbase && CGO_ENABLED=0 go build -o pocketbase main.go
+ssh $TARGET 'pkill -f pocketbase; rm -f ~/pocketbase' || true
+scp pocketbase $TARGET:~/pocketbase
+ssh $TARGET 'nohup ./pocketbase serve --http=0.0.0.0:8090 </dev/null >/dev/null 2>&1 &' || true
+rm -rf pocketbase pb_public/_app pb_public/index.html pb_public/favicon.png
+```
+
 # Key Takeaways
 
 * Full system in 1h backend, 2h frontend, 1h testing, 1h presentation / documentation

@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 
 	import { pb } from '$lib/pocketbase';
-	import { user } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 
 	let error = $state('Loading...');
@@ -19,33 +18,13 @@
 
 		async function loadUser() {
 			try {
-				profileUser = await pb.collection('users').getOne(userId);
+				profileUser = await pb.collection('users').getOne(userId, {
+					expand: 'talk_via_speaker,talksToVisit',
+				});
 
-				const promises = [];
-
-				if (profileUser?.talksToVisit?.length > 0) {
-					promises.push(
-						pb.collection('talk').getList(1, 50, {
-							filter: profileUser.talksToVisit.map((id) => `id = "${id}"`).join(' || '),
-							expand: 'room,speaker,tags',
-							sort: 'start',
-						}),
-					);
-				} else {
-					promises.push(Promise.resolve({ items: [] }));
-				}
-
-				promises.push(
-					pb.collection('talk').getList(1, 50, {
-						filter: `speaker ~ "${userId}"`,
-						expand: 'room,speaker,tags',
-						sort: 'start',
-					}),
-				);
-
-				const [talksResponse, speakerResponse] = await Promise.all(promises);
-				talksToVisit = talksResponse.items;
-				speakerTalks = speakerResponse.items;
+				// Extract talks from expansion
+				speakerTalks = profileUser.expand?.talk_via_speaker || [];
+				talksToVisit = profileUser.expand?.talksToVisit || [];
 
 				error = '';
 			} catch (e) {
@@ -132,7 +111,7 @@
 						</div>
 					{/if}
 
-					{#if $user?.id === profileUser.id}
+					{#if pb.authStore.record?.id === profileUser.id}
 						<div class="mt-4">
 							<a
 								href="/user/edit"
@@ -201,7 +180,7 @@
 				<div class="text-center py-12 text-gray-500 dark:text-gray-400">
 					<p class="text-lg mb-2">No talks found for this user.</p>
 					<p class="text-sm">
-						{#if $user?.id === profileUser?.id}
+						{#if pb.authStore.record?.id === profileUser?.id}
 							Start by <a
 								href="/"
 								class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"

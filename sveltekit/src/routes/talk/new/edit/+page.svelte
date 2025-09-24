@@ -4,15 +4,10 @@
 	import { pb } from '$lib/pocketbase';
 	import { canEditTalk, getUserDisplayName } from '$lib/utils';
 
-	let error = $state('Loading...');
+	// Check if we're creating a new talk
+	const isNewTalk = $page.params.id === undefined;
 
-	// Date validation function
-	const isValidTalkDate = (dateString) => {
-		if (!dateString) return false;
-		const date = new Date(dateString);
-		const dateStr = date.toISOString().split('T')[0];
-		return dateStr === '2025-09-26' || dateStr === '2025-09-27';
-	};
+	let error = $state(isNewTalk ? '' : 'Loading...');
 	let talk = $state(null);
 	let rooms = $state([]);
 	let tags = $state([]);
@@ -32,31 +27,18 @@
 
 	let selectedFiles = $state(null);
 
-	$effect(() => {
-		const talkId = $page.params.id;
-		if (!talkId) {
-			error = 'No talk ID provided';
-			return;
-		}
+	// Date validation function
+	const isValidTalkDate = (dateString) => {
+		if (!dateString) return false;
+		const date = new Date(dateString);
+		const dateStr = date.toISOString().split('T')[0];
+		return dateStr === '2025-09-26' || dateStr === '2025-09-27';
+	};
 
+	$effect(() => {
 		async function loadData() {
 			try {
-				const talkData = await pb.collection('talk').getOne(talkId!, {
-					expand: 'room,speaker,tags',
-				});
-
-				talk = talkData;
-
-				formData.id = talkData.id;
-				formData.name = talkData.name || '';
-				formData.start = talkData.start ? new Date(talkData.start).toISOString().slice(0, 16) : '';
-				formData.durationMinutes = talkData.durationMinutes || 60;
-				formData.description = talkData.description || '';
-				formData.room = talkData.room || '';
-				formData.speaker = talkData.speaker || [];
-				formData.tags = talkData.tags || [];
-				formData.language = talkData.language || 'english';
-
+				// Always load rooms, tags, and users
 				const [roomsResponse, tagsResponse, usersResponse] = await Promise.all([
 					pb.collection('room').getList(1, 100, { sort: 'name' }),
 					pb.collection('tag').getList(1, 100, { sort: 'name' }),
@@ -64,7 +46,38 @@
 				]);
 
 				[rooms, tags, users] = [roomsResponse.items, tagsResponse.items, usersResponse.items];
-				error = '';
+
+				if (isNewTalk) {
+					// Set default values for new talk
+					formData.speaker = pb.authStore.isValid ? [pb.authStore.record.id] : [];
+					error = '';
+				} else {
+					// Load existing talk data
+					const talkId = $page.params.id;
+					if (!talkId) {
+						error = 'No talk ID provided';
+						return;
+					}
+
+					const talkData = await pb.collection('talk').getOne(talkId, {
+						expand: 'room,speaker,tags',
+					});
+
+					talk = talkData;
+
+					formData.id = talkData.id;
+					formData.name = talkData.name || '';
+					formData.start = talkData.start
+						? new Date(talkData.start).toISOString().slice(0, 16)
+						: '';
+					formData.durationMinutes = talkData.durationMinutes || 60;
+					formData.description = talkData.description || '';
+					formData.room = talkData.room || '';
+					formData.speaker = talkData.speaker || [];
+					formData.tags = talkData.tags || [];
+					formData.language = talkData.language || 'english';
+					error = '';
+				}
 			} catch (e) {
 				error = `Failed to load data: ${e}`;
 			}
@@ -88,6 +101,12 @@
 			return;
 		}
 
+		// Validate speaker selection for new talks
+		if (isNewTalk && formData.speaker.length === 0) {
+			alert('Please select at least one speaker for new talks');
+			return;
+		}
+
 		const formDataObj = new FormData();
 		Object.entries(formData).forEach(([key, value]) => {
 			if (Array.isArray(value)) {
@@ -104,37 +123,46 @@
 			}
 		}
 
-		await pb.collection('talk').update(talk.id, formDataObj);
-		window.location.href = `/talk/${talk.id}`;
+		if (isNewTalk) {
+			await pb.collection('talk').create(formDataObj);
+		} else {
+			await pb.collection('talk').update(formData.id!, formDataObj);
+		}
+
+		window.location.href = '/';
 	}
 
-	const toggleSpeaker = (userId) => {
-		formData.speaker = formData.speaker.includes(userId)
+	const toggleSpeaker = (userId) =>
+		(formData.speaker = formData.speaker.includes(userId)
 			? formData.speaker.filter((id) => id !== userId)
-			: [...formData.speaker, userId];
-	};
+			: [...formData.speaker, userId]);
 
-	const toggleTag = (tagId) => {
-		formData.tags = formData.tags.includes(tagId)
+	const toggleTag = (tagId) =>
+		(formData.tags = formData.tags.includes(tagId)
 			? formData.tags.filter((id) => id !== tagId)
-			: [...formData.tags, tagId];
-	};
+			: [...formData.tags, tagId]);
 </script>
 
 <svelte:head>
-	<title>Edit Talk - Socrates Fahrplan</title>
+	<title>{isNewTalk ? 'Create' : 'Edit'} Talk - Socrates Fahrplan</title>
 </svelte:head>
 
 <div class="max-w-4xl mx-auto p-6">
 	{#if error}
 		<div class="text-red-600 dark:text-red-400 text-center py-8">{error}</div>
-	{:else if talk && !canEditTalk(talk, pb.authStore.record)}
+	{:else if !isNewTalk && talk && !canEditTalk(talk, pb.authStore.record)}
 		<div class="text-red-600 dark:text-red-400 text-center py-8">
 			You do not have permission to edit this talk.
 		</div>
-	{:else if talk}
+	{:else if isNewTalk && !pb.authStore.isValid}
+		<div class="text-red-600 dark:text-red-400 text-center py-8">
+			You must be logged in to create a talk.
+		</div>
+	{:else if isNewTalk || talk}
 		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-			<h1 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Edit Talk</h1>
+			<h1 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
+				{isNewTalk ? 'Create New Talk' : 'Edit Talk'}
+			</h1>
 
 			<form onsubmit={handleSubmit} class="space-y-6">
 				<div>
@@ -298,7 +326,7 @@
 						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 					/>
 				</div>
-				{#if talk?.files && talk.files.length > 0}
+				{#if !isNewTalk && talk?.files && talk.files.length > 0}
 					<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
 						<p>Current files:</p>
 						<ul class="list-disc list-inside">
@@ -311,7 +339,7 @@
 
 				<div class="flex justify-end space-x-4">
 					<a
-						href="/talk/{talk?.id || ''}"
+						href={isNewTalk ? '/' : `/talk/${talk?.id || ''}`}
 						class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
 					>
 						Cancel
@@ -320,7 +348,7 @@
 						type="submit"
 						class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
 					>
-						Update Talk
+						{isNewTalk ? 'Create Talk' : 'Update Talk'}
 					</button>
 				</div>
 			</form>

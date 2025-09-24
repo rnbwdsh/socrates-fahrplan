@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 
 	import { pb } from '$lib/pocketbase';
-	import { user } from '$lib/stores';
 
 	let error = $state('Loading...');
 	let userData = $state({
@@ -18,25 +17,24 @@
 	let avatarFile = $state(null);
 
 	$effect(() => {
-		if (!$user) {
+		if (!pb.authStore.isValid) {
 			goto('/login');
 			return;
 		}
 
 		async function loadUserData() {
 			try {
-				const record = await pb.collection('users').getOne($user.id);
+				const record = await pb.collection('users').getOne(pb.authStore.record.id);
 				userData = {
 					email: record.email,
 					name: record.name || '',
 					bio: record.bio || '',
 					website: record.website || '',
-					emailVisibility: record.emailVisibility || false,
+					emailVisibility: record.emailVisibility,
 				};
 				error = '';
 			} catch (e) {
 				error = `Failed to load user data: ${e}`;
-				alert(error);
 			}
 		}
 
@@ -46,52 +44,46 @@
 	async function handleSubmit(e) {
 		e.preventDefault();
 
-		if (!$user) return;
+		if (!pb.authStore.isValid) return;
 
-		try {
-			const updateData = {
-				email: userData.email,
-				name: userData.name,
-				bio: userData.bio,
-				website: userData.website,
-				emailVisibility: userData.emailVisibility,
-			};
-
-			if (newPassword) {
-				if (newPassword !== confirmPassword) {
-					alert('New passwords do not match');
-					return;
-				}
-				updateData.password = newPassword;
-				updateData.passwordConfirm = confirmPassword;
-				updateData.oldPassword = currentPassword;
-			}
-
-			if (avatarFile) {
-				updateData.avatar = avatarFile;
-			}
-
-			await pb.collection('users').update($user.id, updateData);
-
-			const updatedUser = await pb.collection('users').getOne($user.id);
-			user.set(updatedUser);
-
-			alert('Profile updated successfully!');
-
-			currentPassword = '';
-			newPassword = '';
-			confirmPassword = '';
-			avatarFile = null;
-		} catch (e) {
-			alert(`Failed to update profile: ${e}`);
+		if (newPassword && newPassword !== confirmPassword) {
+			alert('New passwords do not match');
+			return;
 		}
+
+		const updateData = {
+			email: userData.email,
+			name: userData.name,
+			bio: userData.bio,
+			website: userData.website,
+			emailVisibility: userData.emailVisibility,
+		};
+
+		if (newPassword) {
+			updateData.password = newPassword;
+			updateData.passwordConfirm = confirmPassword;
+			updateData.oldPassword = currentPassword;
+		}
+
+		if (avatarFile) {
+			updateData.avatar = avatarFile;
+		}
+
+		await pb.collection('users').update(pb.authStore.record.id, updateData);
+
+		alert('Profile updated successfully!');
+
+		currentPassword = '';
+		newPassword = '';
+		confirmPassword = '';
+		avatarFile = null;
 	}
 
-	function handleAvatarChange(e) {
-		if (e.target.files && e.target.files[0]) {
+	const handleAvatarChange = (e) => {
+		if (e.target.files?.[0]) {
 			avatarFile = e.target.files[0];
 		}
-	}
+	};
 </script>
 
 <div class="max-w-2xl mx-auto p-6">
@@ -107,10 +99,12 @@
 						for="avatar"
 						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Avatar</label
 					>
-					{#if $user?.avatar}
+					{#if pb.authStore.record?.avatar}
 						<div class="mb-2">
 							<img
-								src={pb.files.getURL($user, $user.avatar, { thumb: '100x100' })}
+								src={pb.files.getURL(pb.authStore.record, pb.authStore.record.avatar, {
+									thumb: '100x100',
+								})}
 								alt="Current avatar"
 								class="w-16 h-16 rounded-full object-cover"
 							/>

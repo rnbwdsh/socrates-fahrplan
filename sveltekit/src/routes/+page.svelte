@@ -1,11 +1,22 @@
 <script lang="ts">
-	import { SvelteDate, SvelteSet } from 'svelte/reactivity';
+    import {onMount} from 'svelte';
+    import {SvelteDate, SvelteSet} from 'svelte/reactivity';
 
-	import { pb } from '$lib/pocketbase';
-	import { availableDays, selectedDay, talks } from '$lib/stores';
-	import { formatTime, getExpandedRoom } from '$lib/utils';
+    import {pb} from '$lib/pocketbase';
+    import {availableDays, favoriteTalks, selectedDay, talks, user} from '$lib/stores';
+    import {formatTime, getExpandedRoom, toggleFavorite} from '$lib/utils';
 
-	let error = $state('Loading...');
+    let error = $state('Loading...');
+
+	const isTalkFavorited = (talkId) => {
+		return $user && pb.authStore.record
+			? (pb.authStore.record.talksToVisit || []).includes(talkId)
+			: $favoriteTalks.includes(talkId);
+	};
+
+	async function handleFavoriteToggle(talkId) {
+		await toggleFavorite(talkId);
+	}
 
 	const dayTalks = $derived(() => {
 		if (!$selectedDay) return [];
@@ -82,36 +93,33 @@
 
 	$effect(() => availableDays.set(days()));
 
-	$effect(() => {
-		async function loadTalks() {
-			try {
-				const response = await pb.collection('talk').getList(1, 500, {
-					expand: 'room,speaker,tags',
-					sort: 'start',
-				});
+    onMount(() => {
+		(async function () {
+            try {
+                const response = await pb.collection('talk').getList(1, 500, {
+                    expand: 'room,speaker,tags',
+                    sort: 'start',
+                });
 
-				talks.set(response.items);
+                talks.set(response.items);
 
-				pb.collection('talk').subscribe('*', function (e) {
-					if (e.action === 'create') {
-						talks.update((current) => [...current, e.record]);
-					} else if (e.action === 'update') {
-						talks.update((current) =>
-							current.map((talk) => (talk.id === e.record.id ? e.record : talk)),
-						);
-					} else if (e.action === 'delete') {
-						talks.update((current) => current.filter((talk) => talk.id !== e.record.id));
-					}
-				});
+                pb.collection('talk').subscribe('*', (e) => {
+                    if (e.action === 'create') {
+                        talks.update((current) => [...current, e.record]);
+                    } else if (e.action === 'update') {
+                        talks.update((current) =>
+                            current.map((talk) => (talk.id === e.record.id ? e.record : talk)),
+                        );
+                    } else if (e.action === 'delete') {
+                        talks.update((current) => current.filter((talk) => talk.id !== e.record.id));
+                    }
+                });
 
-				error = '';
-			} catch (e) {
-				error = `Failed to load talks: ${e}`;
-				alert(error);
-			}
-		}
-
-		loadTalks();
+                error = '';
+            } catch (e) {
+                error = `Failed to load talks: ${e}`;
+            }
+        })();
 	});
 </script>
 
@@ -183,6 +191,15 @@
 											</a>
 										</h3>
 									</div>
+									<button
+										onclick={() => handleFavoriteToggle(talk.id)}
+										class="ml-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+										title={isTalkFavorited(talk.id) ? 'Remove from favorites' : 'Add to favorites'}
+									>
+										<span class="text-lg">
+											{isTalkFavorited(talk.id) ? '❤️' : '🤍'}
+										</span>
+									</button>
 								</div>
 								{#if talk.description}
 									<p class="text-gray-700 dark:text-gray-300 text-xs leading-tight">
