@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	import { pb } from '$lib/pocketbase';
 	import { canEditTalk, getUserDisplayName } from '$lib/utils';
@@ -33,13 +33,13 @@
 	let selectedFiles = $state(null);
 
 	$effect(() => {
-		const talkId = $page.params.id;
+		const talkId = page.params.id;
 		if (!talkId) {
 			error = 'No talk ID provided';
 			return;
 		}
 
-		async function loadData() {
+		const loadData = async () => {
 			try {
 				const talkData = await pb.collection('talk').getOne(talkId!, {
 					expand: 'room,speaker,tags',
@@ -68,12 +68,12 @@
 			} catch (e) {
 				error = `Failed to load data: ${e}`;
 			}
-		}
+		};
 
 		loadData();
 	});
 
-	async function handleSubmit(event) {
+	const handleSubmit = async (event) => {
 		event.preventDefault();
 
 		// Validate date
@@ -106,7 +106,7 @@
 
 		await pb.collection('talk').update(talk.id, formDataObj);
 		window.location.href = `/talk/${talk.id}`;
-	}
+	};
 
 	const toggleSpeaker = (userId) => {
 		formData.speaker = formData.speaker.includes(userId)

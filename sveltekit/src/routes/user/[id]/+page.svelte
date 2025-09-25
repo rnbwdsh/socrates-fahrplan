@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	import { pb } from '$lib/pocketbase';
 	import { getUserDisplayName } from '$lib/utils';
@@ -10,13 +10,14 @@
 	let speakerTalks = $state([]);
 
 	$effect(() => {
-		const userId = $page.params.id;
+		const userId = page.params.id;
 		if (!userId) {
 			error = 'No user ID provided';
 			return;
 		}
 
-		async function loadUser() {
+		// Convert to arrow function
+		const loadUser = async () => {
 			try {
 				profileUser = await pb.collection('users').getOne(userId, {
 					expand: 'talk_via_speaker,talksToVisit',
@@ -30,7 +31,7 @@
 			} catch (e) {
 				error = `Failed to load user: ${e}`;
 			}
-		}
+		};
 
 		loadUser();
 	});

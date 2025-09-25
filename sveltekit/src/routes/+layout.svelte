@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	import { Logout } from '$lib/auth';
 	import { pb } from '$lib/pocketbase';
 	import { availableDays, selectedDay, theme, user } from '$lib/stores';
 
@@ -28,7 +27,12 @@
 		}
 	});
 
-	const handleLogout = () => Logout();
+	// Inline logout functionality
+	const handleLogout = () => {
+		pb.authStore.clear();
+		user.set(null);
+		window.location.href = '/';
+	};
 
 	onMount(() => {
 		// Initialize user store with current auth state

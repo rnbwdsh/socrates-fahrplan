@@ -1,69 +1,78 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	import { pb } from '$lib/pocketbase';
-	import { favoriteTalks } from '$lib/stores';
+	import type { TagResponse, TalkResponse, UsersResponse } from '$lib/pocketbase-types';
+	import { toggleFavorite, createTalkFavoriteStore } from '$lib/stores';
 	import {
 		canEditTalk,
-		deleteTalk,
-		formatFullDate,
 		formatTime,
-		getEndTime,
 		getExpandedArray,
 		getExpandedRoom,
-		getExpandedSpeakers,
-		getExpandedTags,
 		getUserDisplayName,
-		toggleFavorite,
 	} from '$lib/utils';
 
 	let error = $state('Loading...');
-	let talk = $state(null);
+	let talk = $state<TalkResponse | null>(null);
+	let favoriteStore = $state(null);
 
-	async function handleDelete() {
+	const handleDelete = async () => {
 		if (!talk || !confirm(`Are you sure you want to delete "${talk.name}"?`)) return;
-		await deleteTalk(talk.id);
+		await pb.collection('talk').delete(talk.id);
 		window.location.href = '/';
-	}
+	};
+
+	const getEndTime = (startTime: string, duration: number): string =>
+		new Date(new Date(startTime).getTime() + duration * 60000).toISOString();
+
+	const getExpandedSpeakers = (talk: TalkResponse): UsersResponse[] =>
+		getExpandedArray<UsersResponse>(talk.expand, 'speaker');
+
+	const getExpandedTags = (talk: TalkResponse): TagResponse[] =>
+		getExpandedArray<TagResponse>(talk.expand, 'tags');
+
+	const formatFullDate = (dateString: string): string =>
+		new Date(dateString).toLocaleDateString('en-US', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+		});
 
 	$effect(() => {
-		if (!$page.params.id) {
+		if (!page.params.id) {
 			error = 'No talk ID provided';
 			return;
 		}
 
-		async function loadTalk() {
+		const loadTalk = async () => {
 			try {
-				talk = await pb.collection('talk').getOne($page.params.id!, {
+				talk = await pb.collection('talk').getOne(page.params.id!, {
 					expand: 'room,speaker,tags,users_via_talksToVisit',
 				});
 				error = '';
 			} catch (e) {
 				error = `Failed to load talk: ${e}`;
 			}
-		}
+		};
 
 		loadTalk();
 	});
 
-	let isFavorited = $state(false);
-
+	// Create a derived store for the favorite status of the talk
 	$effect(() => {
 		if (!talk) return;
-
-		isFavorited = pb.authStore.isValid && pb.authStore.record
-		  ? (pb.authStore.record.talksToVisit || []).includes(talk.id)
-		  : $favoriteTalks.includes(talk.id);
+		favoriteStore = createTalkFavoriteStore(talk.id);
 	});
 
-	async function handleToggleFavorite() {
+	const handleToggleFavorite = async () => {
 		if (!talk) return;
-		isFavorited = !isFavorited;
 		await toggleFavorite(talk.id);
+		// Reload talk to update the expanded users_via_talksToVisit
 		talk = await pb.collection('talk').getOne(talk.id, {
 			expand: 'room,speaker,tags,users_via_talksToVisit',
 		});
-	}
+	};
 </script>
 
 {#snippet userList(users, title)}
@@ -185,12 +194,12 @@
 				<div class="flex space-x-3 ml-6">
 					<button
 						onclick={handleToggleFavorite}
-						class="flex items-center space-x-2 px-4 py-2 rounded-md border {isFavorited
+						class="flex items-center space-x-2 px-4 py-2 rounded-md border {favoriteStore && $favoriteStore
 							? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
 							: 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 					>
-						<span class="text-lg">{isFavorited ? '❤️' : '🤍'}</span>
-						<span>{isFavorited ? 'Remove from favorites' : 'Add to favorites'}</span>
+						<span class="text-lg">{favoriteStore && $favoriteStore ? '❤️' : '🤍'}</span>
+						<span>{favoriteStore && $favoriteStore ? 'Remove from favorites' : 'Add to favorites'}</span>
 					</button>
 
 					{#if canEditTalk(talk, pb.authStore.record)}

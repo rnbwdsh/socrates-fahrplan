@@ -1,24 +1,31 @@
 <script lang="ts">
-    import {onMount} from 'svelte';
-    import {SvelteDate, SvelteSet} from 'svelte/reactivity';
+	import { onMount } from 'svelte';
+	import { SvelteDate, SvelteSet, SvelteMap } from 'svelte/reactivity';
 
-    import {pb} from '$lib/pocketbase';
-    import {availableDays, favoriteTalks, selectedDay, talks, user} from '$lib/stores';
-    import {formatTime, getExpandedRoom, toggleFavorite} from '$lib/utils';
+    import { pb } from '$lib/pocketbase';
+	import { availableDays, favoriteTalks, selectedDay, talks, toggleFavorite, currentUserFavorites } from '$lib/stores';
+	import { formatTime, getExpandedRoom } from '$lib/utils';
 
-    let error = $state('Loading...');
-
-	const isTalkFavorited = (talkId) => {
-		return $user && pb.authStore.record
-			? (pb.authStore.record.talksToVisit || []).includes(talkId)
-			: $favoriteTalks.includes(talkId);
-	};
+	let error = $state('Loading...');
 
 	async function handleFavoriteToggle(talkId) {
 		await toggleFavorite(talkId);
 	}
 
-	const dayTalks = $derived(() => {
+	// Create a derived store that tracks all favorite states for current day talks
+	const favoriteStates = $derived(() => {
+		const states = new SvelteMap();
+		dayTalks().forEach(talk => {
+			// Check if talk is favorited based on current user state
+			const isFavorited = pb.authStore.isValid && pb.authStore.record 
+				? $currentUserFavorites.includes(talk.id)
+				: $favoriteTalks.includes(talk.id);
+			states.set(talk.id, isFavorited);
+		});
+		return states;
+	});
+
+    const dayTalks = $derived(() => {
 		if (!$selectedDay) return [];
 		return $talks.filter(
 			(talk) =>
@@ -93,33 +100,32 @@
 
 	$effect(() => availableDays.set(days()));
 
-    onMount(() => {
+	onMount(() => {
 		(async function () {
-            try {
-                const response = await pb.collection('talk').getList(1, 500, {
-                    expand: 'room,speaker,tags',
-                    sort: 'start',
-                });
+			try {
+				const response = await pb
+					.collection('talk')
+					.getList(1, 500, { expand: 'room,speaker,tags', sort: 'start' });
 
-                talks.set(response.items);
+				talks.set(response.items);
 
-                pb.collection('talk').subscribe('*', (e) => {
-                    if (e.action === 'create') {
-                        talks.update((current) => [...current, e.record]);
-                    } else if (e.action === 'update') {
-                        talks.update((current) =>
-                            current.map((talk) => (talk.id === e.record.id ? e.record : talk)),
-                        );
-                    } else if (e.action === 'delete') {
-                        talks.update((current) => current.filter((talk) => talk.id !== e.record.id));
-                    }
-                });
+				pb.collection('talk').subscribe('*', (e) => {
+					if (e.action === 'create') {
+						talks.update((current) => [...current, e.record]);
+					} else if (e.action === 'update') {
+						talks.update((current) =>
+							current.map((talk) => (talk.id === e.record.id ? e.record : talk)),
+						);
+					} else if (e.action === 'delete') {
+						talks.update((current) => current.filter((talk) => talk.id !== e.record.id));
+					}
+				});
 
-                error = '';
-            } catch (e) {
-                error = `Failed to load talks: ${e}`;
-            }
-        })();
+				error = '';
+			} catch (e) {
+				error = `Failed to load talks: ${e}`;
+			}
+		})();
 	});
 </script>
 
@@ -172,6 +178,7 @@
 
 					{#each dayTalks() as talk (talk.id)}
 						{@const position = getGridPosition(talk)}
+						{@const isFavorited = favoriteStates().get(talk.id) || false}
 						{#if position}
 							<div
 								class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 border-l-4 border-blue-500 hover:shadow-lg transition-shadow overflow-hidden m-1"
@@ -194,10 +201,10 @@
 									<button
 										onclick={() => handleFavoriteToggle(talk.id)}
 										class="ml-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-										title={isTalkFavorited(talk.id) ? 'Remove from favorites' : 'Add to favorites'}
+										title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
 									>
 										<span class="text-lg">
-											{isTalkFavorited(talk.id) ? '❤️' : '🤍'}
+											{isFavorited ? '❤️' : '🤍'}
 										</span>
 									</button>
 								</div>

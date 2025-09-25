@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	import { pb } from '$lib/pocketbase';
 	import { canEditTalk, getUserDisplayName } from '$lib/utils';
 
 	// Check if we're creating a new talk
-	const isNewTalk = $page.params.id === undefined;
+	const isNewTalk = page.params.id === undefined;
 
 	let error = $state(isNewTalk ? '' : 'Loading...');
 	let talk = $state(null);
@@ -27,7 +27,7 @@
 
 	let selectedFiles = $state(null);
 
-	// Date validation function
+	// Date validation function - convert to arrow function
 	const isValidTalkDate = (dateString) => {
 		if (!dateString) return false;
 		const date = new Date(dateString);
@@ -36,7 +36,8 @@
 	};
 
 	$effect(() => {
-		async function loadData() {
+		// Convert to arrow function
+		const loadData = async () => {
 			try {
 				// Always load rooms, tags, and users
 				const [roomsResponse, tagsResponse, usersResponse] = await Promise.all([
@@ -81,12 +82,13 @@
 			} catch (e) {
 				error = `Failed to load data: ${e}`;
 			}
-		}
+		};
 
 		loadData();
 	});
 
-	async function handleSubmit(event) {
+	// Convert to arrow function
+	const handleSubmit = async (event) => {
 		event.preventDefault();
 
 		// Validate date
@@ -130,8 +132,9 @@
 		}
 
 		window.location.href = '/';
-	}
+	};
 
+	// Convert to arrow functions
 	const toggleSpeaker = (userId) =>
 		(formData.speaker = formData.speaker.includes(userId)
 			? formData.speaker.filter((id) => id !== userId)

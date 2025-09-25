@@ -1,5 +1,5 @@
 ---
-title: "BaaS'ed: Low code backend design with pocketbase"
+title: "BaaSed: Low code backend design with pocketbase"
 author: "Markus Vogl"
 date: "Socrates Unconference 2025"
 aspectratio: 169
@@ -34,7 +34,7 @@ header-includes: |
 
 **Markus Vogl**
 
-- Student @ JKU
+- Student at JKU
 - Java Full Stack Engineer since too long
 - Discord: #rnbwdsh#0022
 - Passionate about modern development tools and rapid prototyping
@@ -251,24 +251,48 @@ jsonData := `{
 
 ---
 
-# Step 3: Frontend Development: SvelteKit + TypeScript + Svelte 5 Runes
+# Step 3: Frontend Development: SvelteKit + Svelte 5 Runes
 
-Key architectural decisions:
+Simple CRUD API via [Pocketbase JS SDK](https://pocketbase.io/docs/js-sdk/)
 
-* **Type Safety:** Generated types from PocketBase schema
-* **Real-time:** WebSocket subscriptions to collections
-* **State Management:** Svelte stores for favorites
-* **Responsive Design:** CSS Grid layout for talk schedule
+```javascript
+await pb.collection('users').authWithPassword(email, password);
+await pb.collection('users').create({email, password, passwordConfirm, secret});
+await pb.collection('users').getOne(pb.authStore.record.id);
+await pb.collection('users').update(pb.authStore.record.id, {talksToVisit: mergedFavorites});
+await pb.collection('talk').delete(id);
+```
+
+---
+
+# Step 3: Typesafe fetching and expansion in `entity.expand`.
 
 ```typescript
 import type {TalkResponse} from '$lib/pocketbase-types';
+export const talks = writable<TalkResponse[]>([]);
 
-pb.collection('talk').subscribe('*', (e) => {
-    talks.update(current => [...current, e.record]);
+onMount(() => { ...
+    const response = await pb.collection('talk').getList(1, 500, 
+        {expand: 'room,speaker,tags', sort: 'start'});
+    talks.set(response.items);
+    ...
 });
 ```
 
 ---
+
+# Step 3: Realtime Updates with WebSockets
+
+```typescript
+    pb.collection('talk').subscribe('*', (e) => {
+    if (e.action === 'create') {
+        talks.update((current) => [...current, e.record]);
+    } else if (e.action === 'update') {
+        talks.update((current) => current.map((talk) => (talk.id === e.record.id ? e.record : talk)));
+    } else if (e.action === 'delete') {
+        talks.update((current) => current.filter((talk) => talk.id !== e.record.id));
+    }});
+```
 
 # Excursion: Vibecoding for haters
 
@@ -284,27 +308,6 @@ pb.collection('talk').subscribe('*', (e) => {
 * A good spec is half the documentation
 * If possible, pull just the needed stuff into context, or let it refine the planning before starting.
 * Still use git!
-
----
-
-# Step 3: Smart Permission Integration
-
-## Frontend Rules Mirror Backend Permissions
-
-```typescript
-const canEdit = (talk: TalkResponse, user: UserResponse) =>
-    talk.speaker?.includes(user.id) || talk.speaker?.length === 0;
-
-if ($currentUser) {
-    await pb.collection('users').update($currentUser.id, {
-        talksToVisit: [...($currentUser.talksToVisit || []), talkId]
-    });
-} else {
-    favoriteStore.update(favs => [...favs, talkId]);
-}
-```
-
-**Result:** Seamless user experience with proper authorization!
 
 ---
 
@@ -402,4 +405,3 @@ rm -rf pocketbase pb_public/_app pb_public/index.html pb_public/favicon.png
 ---
 
 \section{Thank You!}
-    
