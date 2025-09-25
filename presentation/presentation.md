@@ -143,7 +143,7 @@ public class SecurityConfig {
 
 ---
 
-# FOSSS BaaS Landscape
+# FOSS BaaS Landscape
 
 | Product            | Core Lang  | Database           | Notable                   |
 |--------------------|------------|--------------------|---------------------------|
@@ -151,7 +151,7 @@ public class SecurityConfig {
 | **Appwrite**       | PHP        | MySQL/MariaDB      | UI stuff                  |
 | **Hasura**         | Haskell    | PostgreSQL         | GraphQL-first             |
 | **Directus**       | Node.js/TS | Any SQL            | CMS focus                 |
-| **Parse Platform** | Node.js    | MongoDB/PostgreSQL | True FOSSS                |
+| **Parse Platform** | Node.js    | MongoDB/PostgreSQL | True FOSS                |
 | **Kuzzle**         | Node.js    | Elasticsearch      | IoT/Analytics             |
 | **PocketBase**     | Go         | SQLite             | Single executable, simple |
 
@@ -288,9 +288,11 @@ onMount(() => { ...
     if (e.action === 'create') {
         talks.update((current) => [...current, e.record]);
     } else if (e.action === 'update') {
-        talks.update((current) => current.map((talk) => (talk.id === e.record.id ? e.record : talk)));
+        talks.update((current) => current.map((talk) => 
+            (talk.id === e.record.id ? e.record : talk)));
     } else if (e.action === 'delete') {
-        talks.update((current) => current.filter((talk) => talk.id !== e.record.id));
+        talks.update((current) => current.filter((talk) => 
+            talk.id !== e.record.id));
     }});
 ```
 
@@ -349,7 +351,7 @@ app.OnRecordBeforeCreateRequest("talk").Add(func (e *core.RecordCreateEvent) err
   room := e.Record.GetString("room")
 
   existingTalks, err := app.Dao().FindRecordsByExpr("talk",
-  dbx.HashExp{"room": room})
+    dbx.HashExp{"room": room})
 
   for _, existing := range existingTalks {
     if hasTimeOverlap(start, duration, existing) {
@@ -359,24 +361,6 @@ app.OnRecordBeforeCreateRequest("talk").Add(func (e *core.RecordCreateEvent) err
   return e.Next()
 })
 ```
-
----
-
-# Step 5: Conflict Detection Logic - Smart overlap prevention
-
-```go
-func hasTimeOverlap(newStart time.Time, newDuration int, existing *models.Record) bool {
-  existingStart := existing.GetDateTime("start")
-  existingDuration := existing.GetInt("durationMinutes")
-
-  newEnd := newStart.Add(time.Duration(newDuration) * time.Minute)
-  existingEnd := existingStart.Add(time.Duration(existingDuration) * time.Minute)
-
-  return !(newEnd.Before(existingStart) || newStart.After(existingEnd))
-}
-```
-
-**Testing:** Vibe coded 4 manual test cases for the 4 kinds of temporal overlap (start inside, end inside, enveloping, enveloped)
 
 ---
 
@@ -391,7 +375,7 @@ mv -f build/* ../pocketbase/pb_public/
 cd ../pocketbase && CGO_ENABLED=0 go build -o pocketbase main.go
 ssh $TARGET 'pkill -f pocketbase; rm -f ~/pocketbase' || true
 scp pocketbase $TARGET:~/pocketbase
-ssh $TARGET 'nohup ./pocketbase serve --http=0.0.0.0:8090 </dev/null >/dev/null 2>&1 &' || true
+ssh $TARGET 'nohup ./pocketbase serve --http=0.0.0.0:13337 </dev/null >/dev/null 2>&1 &' || true
 rm -rf pocketbase pb_public/_app pb_public/index.html pb_public/favicon.png
 ```
 
