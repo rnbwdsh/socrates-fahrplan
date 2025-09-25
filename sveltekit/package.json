@@ -14,10 +14,10 @@
 		"lint": "prettier --check . && eslint ."
 	},
 	"devDependencies": {
-		"@eslint/compat": "^1.3.2",
+		"@eslint/compat": "^1.4.0",
 		"@eslint/js": "^9.36.0",
 		"@sveltejs/adapter-static": "^3.0.9",
-		"@sveltejs/kit": "^2.42.2",
+		"@sveltejs/kit": "^2.43.4",
 		"@sveltejs/vite-plugin-svelte": "^5.1.1",
 		"@tailwindcss/vite": "^4.1.13",
 		"@trivago/prettier-plugin-sort-imports": "^5.2.2",
@@ -33,11 +33,11 @@
 		"svelte-check": "^4.3.2",
 		"tailwindcss": "^4.1.13",
 		"typescript": "^5.9.2",
-		"typescript-eslint": "^8.44.0",
+		"typescript-eslint": "^8.44.1",
 		"vite": "^6.3.6"
 	},
 	"dependencies": {
-		"svelte": "^5.39.4",
+		"svelte": "^5.39.6",
 		"svelte-persisted-store": "^0.12.0"
 	}
 }
