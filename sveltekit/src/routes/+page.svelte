@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { SvelteDate, SvelteSet, SvelteMap } from 'svelte/reactivity';
+	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 
-    import { pb } from '$lib/pocketbase';
-	import { availableDays, favoriteTalks, selectedDay, talks, toggleFavorite, currentUserFavorites } from '$lib/stores';
+	import { pb } from '$lib/pocketbase';
+	import {
+		availableDays,
+		currentUserFavorites,
+		favoriteTalks,
+		selectedDay,
+		talks,
+		toggleFavorite,
+	} from '$lib/stores';
 	import { formatTime, getExpandedRoom } from '$lib/utils';
 
 	let error = $state('Loading...');
@@ -15,17 +22,18 @@
 	// Create a derived store that tracks all favorite states for current day talks
 	const favoriteStates = $derived(() => {
 		const states = new SvelteMap();
-		dayTalks().forEach(talk => {
+		dayTalks().forEach((talk) => {
 			// Check if talk is favorited based on current user state
-			const isFavorited = pb.authStore.isValid && pb.authStore.record 
-				? $currentUserFavorites.includes(talk.id)
-				: $favoriteTalks.includes(talk.id);
+			const isFavorited =
+				pb.authStore.isValid && pb.authStore.record
+					? $currentUserFavorites.includes(talk.id)
+					: $favoriteTalks.includes(talk.id);
 			states.set(talk.id, isFavorited);
 		});
 		return states;
 	});
 
-    const dayTalks = $derived(() => {
+	const dayTalks = $derived(() => {
 		if (!$selectedDay) return [];
 		return $talks.filter(
 			(talk) =>

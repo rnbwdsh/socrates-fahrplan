@@ -8,7 +8,6 @@
 
 	const { children } = $props();
 
-	// Use user store for proper reactivity
 	const isAuthenticated = $derived($user !== null);
 
 	const isDark = $derived(
@@ -27,7 +26,6 @@
 		}
 	});
 
-	// Inline logout functionality
 	const handleLogout = () => {
 		pb.authStore.clear();
 		user.set(null);
@@ -35,8 +33,11 @@
 	};
 
 	onMount(() => {
-		// Initialize user store with current auth state
 		user.set(pb.authStore.record);
+
+		pb.authStore.onChange((token, record) => {
+			user.set(record);
+		});
 	});
 
 	const themeEmojis = {

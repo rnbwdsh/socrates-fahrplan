@@ -1,6 +1,6 @@
 import type { AuthRecord } from 'pocketbase';
 import { persisted } from 'svelte-persisted-store';
-import { writable, derived, get } from 'svelte/store';
+import { derived, get, writable } from 'svelte/store';
 
 import type { TalkResponse } from './pocketbase-types.js';
 import { pb } from './pocketbase.js';
@@ -52,15 +52,13 @@ export const toggleFavorite = async (talkId: string): Promise<void> => {
 
 		// Update the local authStore record to trigger reactivity
 		pb.authStore.record.talksToVisit = newTalksToVisit;
-		
+
 		// Trigger a user store update to notify components
 		user.set({ ...pb.authStore.record });
 	} else {
 		// For non-logged in users - update local storage
 		favoriteTalks.update((current) =>
-			current.includes(talkId) 
-				? current.filter((id) => id !== talkId) 
-				: [...current, talkId]
+			current.includes(talkId) ? current.filter((id) => id !== talkId) : [...current, talkId],
 		);
 	}
 };

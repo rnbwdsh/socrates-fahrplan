@@ -1,117 +1,88 @@
 <script lang="ts">
-	import { applyAction } from '$app/forms';
-	import { page } from '$app/state';
-	import { ClientResponseError } from 'pocketbase';
-	import type { AuthRecord } from 'pocketbase';
-	import { persisted } from 'svelte-persisted-store';
-	import { get } from 'svelte/store';
-	import { writable } from 'svelte/store';
+	import { goto } from '$app/navigation';
 
 	import { pb } from '$lib/pocketbase';
+	import { user } from '$lib/stores';
 
-	// Inline stores with proper typing
-	const user = writable<AuthRecord | null>(null);
-	const favoriteTalks = persisted<string[]>('favorite-talks', []);
+	let emailOrUsername = $state('');
+	let password = $state('');
+	let error = $state('');
 
-	// Reactive form fields
-	let email = '';
-	let password = '';
-	let isSubmitting = false;
-	let errorMessage = '';
-
-	// Inline login action - converted to arrow function
 	const handleLogin = async () => {
-		if (isSubmitting) return;
-
-		isSubmitting = true;
-		errorMessage = '';
-
+		error = '';
 		try {
-			// Get localStorage favorites before login
-			const localFavorites = get(favoriteTalks);
-
-			await pb.collection('users').authWithPassword(email, password);
-
-			// Update user store for reactivity
-			user.set(pb.authStore.record);
-
-			// Sync localStorage favorites to the user account if any exist
-			if (localFavorites.length > 0) {
-				const userData = await pb.collection('users').getOne(pb.authStore.record!.id);
-				const existingFavorites = userData.talksToVisit || [];
-				const mergedFavorites = [...new Set([...existingFavorites, ...localFavorites])];
-
-				await pb.collection('users').update(pb.authStore.record!.id, {
-					talksToVisit: mergedFavorites,
-				});
-				// Update auth store record to reflect the change
-				pb.authStore.record!.talksToVisit = mergedFavorites;
-				// Clear localStorage since we've synced to account
-				favoriteTalks.set([]);
-			}
-
-			await applyAction({
-				type: 'redirect',
-				status: 303,
-				location: page.url?.searchParams?.get('next') || '/',
-			});
+			const authData = await pb.collection('users').authWithPassword(emailOrUsername, password);
+			user.set(authData.record);
+			goto('/');
 		} catch (e) {
-			console.log(e);
-			if (e instanceof ClientResponseError) {
-				errorMessage = e.response.message || 'Login failed';
-				await applyAction({ type: 'failure', status: 400, data: { response: e.response } });
-			} else {
-				errorMessage = 'An unexpected error occurred';
-				throw e;
-			}
-		} finally {
-			isSubmitting = false;
+			error = `Login failed: ${e}`;
 		}
 	};
 </script>
 
-<form on:submit|preventDefault={handleLogin} class="space-y-6">
-	<div>
-		<label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-			Email or Username
-		</label>
-		<input
-			bind:value={email}
-			type="text"
-			required
-			disabled={isSubmitting}
-			class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-		/>
+
+	<div class="max-w-md w-full space-y-8">
+		<div>
+			<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+				Sign in to your account
+			</h2>
+		</div>
+		<form
+			class="mt-8 space-y-6"
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleLogin();
+			}}
+		>
+			{#if error}
+				<div class="text-red-600 dark:text-red-400 text-center">{error}</div>
+			{/if}
+
+			<div class="rounded-md shadow-sm -space-y-px">
+				<div>
+					<label for="emailOrUsername" class="sr-only">Email address or username</label>
+					<input
+						id="emailOrUsername"
+						name="emailOrUsername"
+						type="text"
+						autocomplete="username"
+						required
+						bind:value={emailOrUsername}
+						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800"
+						placeholder="Email address or username"
+					/>
+				</div>
+				<div>
+					<label for="password" class="sr-only">Password</label>
+					<input
+						id="password"
+						name="password"
+						type="password"
+						autocomplete="current-password"
+						required
+						bind:value={password}
+						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800"
+						placeholder="Password"
+					/>
+				</div>
+			</div>
+
+			<div>
+				<button
+					type="submit"
+					class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+				>
+					Sign in
+				</button>
+			</div>
+
+			<div class="text-center">
+				<a
+					href="/register"
+					class="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+				>
+					Don't have an account? Register here
+				</a>
+			</div>
+		</form>
 	</div>
-	<div>
-		<label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-			Password
-		</label>
-		<input
-			bind:value={password}
-			type="password"
-			required
-			disabled={isSubmitting}
-			class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-		/>
-	</div>
-
-	{#if errorMessage}
-		<p class="text-red-500 dark:text-red-400">{errorMessage}</p>
-	{/if}
-
-	<button
-		type="submit"
-		disabled={isSubmitting}
-		class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-	>
-		{isSubmitting ? 'Logging in...' : 'Login'}
-	</button>
-
-	<a
-		href="/register"
-		class="block text-sm text-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-	>
-		Create an account
-	</a>
-</form>

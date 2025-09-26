@@ -1,155 +1,164 @@
 <script lang="ts">
-	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	import { pb } from '$lib/pocketbase';
-	import { canEditTalk, getUserDisplayName } from '$lib/utils';
+	import type {
+		RoomResponse,
+		TagResponse,
+		TalkResponse,
+		UsersResponse,
+	} from '$lib/pocketbase-types';
 
+	const talkId = $derived($page.params.id);
+
+	let name = $state('');
+	let description = $state('');
+	let start = $state('');
+	let durationMinutes = $state(60);
+	let roomId = $state('');
+	let selectedSpeakers = $state<string[]>([]);
+	let selectedTags = $state<string[]>([]);
+	let language = $state<'english' | 'german'>('english');
 	let error = $state('Loading...');
 
-	// Date validation function
-	const isValidTalkDate = (dateString) => {
-		if (!dateString) return false;
-		const date = new Date(dateString);
-		const dateStr = date.toISOString().split('T')[0];
-		return dateStr === '2025-09-26' || dateStr === '2025-09-27';
+	let rooms = $state<RoomResponse[]>([]);
+	let tags = $state<TagResponse[]>([]);
+	let users = $state<UsersResponse[]>([]);
+	let talk = $state<TalkResponse | null>(null);
+
+	const loadData = async () => {
+		try {
+			const [talkResponse, roomsResponse, tagsResponse, usersResponse] = await Promise.all([
+				pb.collection('talk').getOne(talkId, { expand: 'room,speaker,tags' }),
+				pb.collection('room').getList(1, 500),
+				pb.collection('tag').getList(1, 500),
+				pb.collection('users').getList(1, 500),
+			]);
+
+			talk = talkResponse;
+			rooms = roomsResponse.items;
+			tags = tagsResponse.items;
+			users = usersResponse.items;
+
+			// Populate form with existing data
+			name = talk.name;
+			description = talk.description || '';
+			start = new Date(talk.start).toISOString().slice(0, 16); // Format for datetime-local
+			durationMinutes = talk.durationMinutes;
+			roomId = talk.room;
+			selectedSpeakers = talk.speaker || [];
+			selectedTags = talk.tags || [];
+			language = talk.language || 'english';
+
+			error = '';
+		} catch (e) {
+			error = `Failed to load data: ${e}`;
+		}
 	};
-	let talk = $state(null);
-	let rooms = $state([]);
-	let tags = $state([]);
-	let users = $state([]);
 
-	let formData = $state({
-		id: '',
-		name: '',
-		start: '',
-		durationMinutes: 60,
-		description: '',
-		room: '',
-		speaker: [],
-		tags: [],
-		language: 'english',
-	});
-
-	let selectedFiles = $state(null);
-
-	$effect(() => {
-		const talkId = page.params.id;
-		if (!talkId) {
-			error = 'No talk ID provided';
+	const handleSubmit = async () => {
+		if (!name || !start || !roomId) {
+			error = 'Name, start time, and room are required';
 			return;
 		}
 
-		const loadData = async () => {
-			try {
-				const talkData = await pb.collection('talk').getOne(talkId!, {
-					expand: 'room,speaker,tags',
-				});
+		try {
+			const talkData = {
+				name,
+				description,
+				start: new Date(start).toISOString(),
+				durationMinutes,
+				room: roomId,
+				speaker: selectedSpeakers.length > 0 ? selectedSpeakers : undefined,
+				tags: selectedTags.length > 0 ? selectedTags : undefined,
+				language,
+			};
 
-				talk = talkData;
-
-				formData.id = talkData.id;
-				formData.name = talkData.name || '';
-				formData.start = talkData.start ? new Date(talkData.start).toISOString().slice(0, 16) : '';
-				formData.durationMinutes = talkData.durationMinutes || 60;
-				formData.description = talkData.description || '';
-				formData.room = talkData.room || '';
-				formData.speaker = talkData.speaker || [];
-				formData.tags = talkData.tags || [];
-				formData.language = talkData.language || 'english';
-
-				const [roomsResponse, tagsResponse, usersResponse] = await Promise.all([
-					pb.collection('room').getList(1, 100, { sort: 'name' }),
-					pb.collection('tag').getList(1, 100, { sort: 'name' }),
-					pb.collection('users').getList(1, 100, { sort: 'name' }),
-				]);
-
-				[rooms, tags, users] = [roomsResponse.items, tagsResponse.items, usersResponse.items];
-				error = '';
-			} catch (e) {
-				error = `Failed to load data: ${e}`;
-			}
-		};
-
-		loadData();
-	});
-
-	const handleSubmit = async (event) => {
-		event.preventDefault();
-
-		// Validate date
-		if (!isValidTalkDate(formData.start)) {
-			alert('Talk date must be September 26 or 27, 2025');
-			return;
+			await pb.collection('talk').update(talkId, talkData);
+			goto(`/talk/${talkId}`);
+		} catch (e) {
+			error = `Failed to update talk: ${e}`;
 		}
-
-		// Validate required fields
-		if (!formData.name || !formData.start) {
-			alert('Please fill in all required fields');
-			return;
-		}
-
-		const formDataObj = new FormData();
-		Object.entries(formData).forEach(([key, value]) => {
-			if (Array.isArray(value)) {
-				value.forEach((item) => formDataObj.append(key, item));
-			} else {
-				formDataObj.append(key, value);
-			}
-		});
-
-		// Add files if selected
-		if (selectedFiles) {
-			for (let i = 0; i < selectedFiles.length; i++) {
-				formDataObj.append('files', selectedFiles[i]);
-			}
-		}
-
-		await pb.collection('talk').update(talk.id, formDataObj);
-		window.location.href = `/talk/${talk.id}`;
 	};
 
-	const toggleSpeaker = (userId) => {
-		formData.speaker = formData.speaker.includes(userId)
-			? formData.speaker.filter((id) => id !== userId)
-			: [...formData.speaker, userId];
+	const handleDelete = async () => {
+		if (!confirm('Are you sure you want to delete this talk?')) return;
+
+		try {
+			await pb.collection('talk').delete(talkId);
+			goto('/');
+		} catch (e) {
+			error = `Failed to delete talk: ${e}`;
+		}
 	};
 
-	const toggleTag = (tagId) => {
-		formData.tags = formData.tags.includes(tagId)
-			? formData.tags.filter((id) => id !== tagId)
-			: [...formData.tags, tagId];
+	const toggleSpeaker = (speakerId: string) => {
+		if (selectedSpeakers.includes(speakerId)) {
+			selectedSpeakers = selectedSpeakers.filter((id) => id !== speakerId);
+		} else {
+			selectedSpeakers = [...selectedSpeakers, speakerId];
+		}
 	};
+
+	const toggleTag = (tagId: string) => {
+		if (selectedTags.includes(tagId)) {
+			selectedTags = selectedTags.filter((id) => id !== tagId);
+		} else {
+			selectedTags = [...selectedTags, tagId];
+		}
+	};
+
+	// Load data on mount
+	loadData();
 </script>
 
-<svelte:head>
-	<title>Edit Talk - Socrates Fahrplan</title>
-</svelte:head>
+<div class="max-w-2xl mx-auto p-4">
+	<h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Edit Talk</h1>
 
-<div class="max-w-4xl mx-auto p-6">
 	{#if error}
-		<div class="text-red-600 dark:text-red-400 text-center py-8">{error}</div>
-	{:else if talk && !canEditTalk(talk, pb.authStore.record)}
-		<div class="text-red-600 dark:text-red-400 text-center py-8">
-			You do not have permission to edit this talk.
+		<div class="text-red-600 dark:text-red-400 mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+			{error}
 		</div>
-	{:else if talk}
-		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-			<h1 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Edit Talk</h1>
+	{:else}
+		<form
+			class="space-y-6"
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleSubmit();
+			}}
+		>
+			<div>
+				<label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Talk Name *
+				</label>
+				<input
+					id="name"
+					type="text"
+					required
+					bind:value={name}
+					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+					placeholder="Enter talk name"
+				/>
+			</div>
 
-			<form onsubmit={handleSubmit} class="space-y-6">
-				<div>
-					<label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						Talk Name *
-					</label>
-					<input
-						id="name"
-						type="text"
-						bind:value={formData.name}
-						required
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-					/>
-				</div>
+			<div>
+				<label
+					for="description"
+					class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+				>
+					Description
+				</label>
+				<textarea
+					id="description"
+					rows={4}
+					bind:value={description}
+					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+					placeholder="Enter talk description"
+				></textarea>
+			</div>
 
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div>
 					<label
 						for="start"
@@ -160,15 +169,10 @@
 					<input
 						id="start"
 						type="datetime-local"
-						bind:value={formData.start}
 						required
-						min="2025-09-26T00:00"
-						max="2025-09-27T23:59"
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+						bind:value={start}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
 					/>
-					<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-						Must be on September 26 or 27, 2025
-					</p>
 				</div>
 
 				<div>
@@ -176,50 +180,35 @@
 						for="duration"
 						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
 					>
-						Duration (minutes) *
+						Duration (minutes)
 					</label>
 					<input
 						id="duration"
 						type="number"
-						bind:value={formData.durationMinutes}
-						min="1"
-						required
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+						min="15"
+						step="15"
+						bind:value={durationMinutes}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
 					/>
 				</div>
+			</div>
 
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div>
 					<label for="room" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 						Room *
 					</label>
 					<select
 						id="room"
-						bind:value={formData.room}
 						required
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+						bind:value={roomId}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
 					>
-						<option value="">Select a room...</option>
+						<option value="">Select a room</option>
 						{#each rooms as room (room.id)}
-							<option value={room.id}>
-								{room.name}{room.floor ? ` (Floor ${room.floor})` : ''}
-							</option>
+							<option value={room.id}>{room.name}</option>
 						{/each}
 					</select>
-				</div>
-
-				<div>
-					<label
-						for="description"
-						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-					>
-						Description
-					</label>
-					<textarea
-						id="description"
-						bind:value={formData.description}
-						rows="4"
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-					></textarea>
 				</div>
 
 				<div>
@@ -231,99 +220,80 @@
 					</label>
 					<select
 						id="language"
-						bind:value={formData.language}
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+						bind:value={language}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
 					>
 						<option value="english">English</option>
 						<option value="german">German</option>
 					</select>
 				</div>
+			</div>
 
-				<fieldset>
-					<legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-						>Speakers</legend
-					>
-					<div
-						class="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 p-3"
-					>
-						{#each users as userItem (userItem.id)}
-							<label class="flex items-center space-x-2 py-1">
-								<input
-									type="checkbox"
-									checked={formData.speaker.includes(userItem.id)}
-									onchange={() => toggleSpeaker(userItem.id)}
-									class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-								/>
-								<span class="text-sm text-gray-900 dark:text-gray-100"
-									>{getUserDisplayName(userItem)}</span
-								>
-							</label>
-						{/each}
-					</div>
-				</fieldset>
-
-				<fieldset>
-					<legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-						>Tags</legend
-					>
-					<div
-						class="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 p-3"
-					>
-						{#each tags as tag (tag.id)}
-							<label class="flex items-center space-x-2 py-1">
-								<input
-									type="checkbox"
-									checked={formData.tags.includes(tag.id)}
-									onchange={() => toggleTag(tag.id)}
-									class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-								/>
-								<span class="text-sm text-gray-900 dark:text-gray-100">{tag.name}</span>
-							</label>
-						{/each}
-					</div>
-				</fieldset>
-
-				<div>
-					<label
-						for="files"
-						class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-					>
-						Files
-					</label>
-					<input
-						id="files"
-						type="file"
-						multiple
-						bind:files={selectedFiles}
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-					/>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Speakers (optional)
+				</label>
+				<div
+					class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-white dark:bg-gray-800"
+				>
+					{#each users as user (user.id)}
+						<label
+							class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded"
+						>
+							<input
+								type="checkbox"
+								checked={selectedSpeakers.includes(user.id)}
+								onchange={() => toggleSpeaker(user.id)}
+								class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+							/>
+							<span class="text-sm text-gray-900 dark:text-white">{user.name || user.email}</span>
+						</label>
+					{/each}
 				</div>
-				{#if talk?.files && talk.files.length > 0}
-					<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-						<p>Current files:</p>
-						<ul class="list-disc list-inside">
-							{#each talk.files as file (file)}
-								<li>{file}</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
+			</div>
 
-				<div class="flex justify-end space-x-4">
-					<a
-						href="/talk/{talk?.id || ''}"
-						class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
-					>
-						Cancel
-					</a>
-					<button
-						type="submit"
-						class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-					>
-						Update Talk
-					</button>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Tags (optional)
+				</label>
+				<div class="flex flex-wrap gap-2">
+					{#each tags as tag (tag.id)}
+						<button
+							type="button"
+							onclick={() => toggleTag(tag.id)}
+							class="px-3 py-1 rounded-full text-sm border transition-colors {selectedTags.includes(
+								tag.id,
+							)
+								? 'bg-blue-600 text-white border-blue-600'
+								: 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+						>
+							{tag.name}
+						</button>
+					{/each}
 				</div>
-			</form>
-		</div>
+			</div>
+
+			<div class="flex space-x-4">
+				<button
+					type="submit"
+					class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+				>
+					Update Talk
+				</button>
+				<button
+					type="button"
+					onclick={handleDelete}
+					class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+				>
+					Delete
+				</button>
+				<a
+					href="/talk/{talkId}"
+					class="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 font-medium text-center"
+				>
+					Cancel
+				</a>
+			</div>
+		</form>
 	{/if}
 </div>

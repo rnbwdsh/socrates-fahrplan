@@ -6,7 +6,7 @@ export const getExpandedArray = <T>(expand: unknown, key: string): T[] => {
 	if (!expand || typeof expand !== 'object') {
 		return [];
 	}
-    const value = (expand as Record<string, unknown>)[key];
+	const value = (expand as Record<string, unknown>)[key];
 	if (Array.isArray(value)) {
 		return value as T[];
 	} else if (value) {

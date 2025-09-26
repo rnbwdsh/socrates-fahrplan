@@ -3,7 +3,7 @@
 
 	import { pb } from '$lib/pocketbase';
 	import type { TagResponse, TalkResponse, UsersResponse } from '$lib/pocketbase-types';
-	import { toggleFavorite, createTalkFavoriteStore } from '$lib/stores';
+	import { createTalkFavoriteStore, toggleFavorite } from '$lib/stores';
 	import {
 		canEditTalk,
 		formatTime,
@@ -194,12 +194,17 @@
 				<div class="flex space-x-3 ml-6">
 					<button
 						onclick={handleToggleFavorite}
-						class="flex items-center space-x-2 px-4 py-2 rounded-md border {favoriteStore && $favoriteStore
+						class="flex items-center space-x-2 px-4 py-2 rounded-md border {favoriteStore &&
+						$favoriteStore
 							? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
 							: 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 					>
 						<span class="text-lg">{favoriteStore && $favoriteStore ? '❤️' : '🤍'}</span>
-						<span>{favoriteStore && $favoriteStore ? 'Remove from favorites' : 'Add to favorites'}</span>
+						<span
+							>{favoriteStore && $favoriteStore
+								? 'Remove from favorites'
+								: 'Add to favorites'}</span
+						>
 					</button>
 
 					{#if canEditTalk(talk, pb.authStore.record)}
